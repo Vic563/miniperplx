@@ -1,9 +1,10 @@
-// /app/api/chat/route.ts
 import { z } from "zod";
 import { createAzure } from '@ai-sdk/azure';
 import { anthropic } from '@ai-sdk/anthropic'
 import { xai } from '@ai-sdk/xai'
 import { google } from '@ai-sdk/google'
+import { o1 } from '@ai-sdk/o1'
+import { o1Preview } from '@ai-sdk/openai';
 import Exa from 'exa-js'
 import {
   convertToCoreMessages,
@@ -108,6 +109,8 @@ const registry = experimental_createProviderRegistry({
   azure,
   google,
   xai,
+  o1,
+  o1Preview,
 });
 
 function sanitizeUrl(url: string): string {
@@ -713,7 +716,7 @@ export async function POST(req: Request) {
               if (result.formats().length > 0) {
                 const formats = result.formats();
                 for (let format of formats) {
-                  if (format === "png" || format === "jpeg" || format === "svg") {
+                  if (format === "png" || format === "jpeg" || "svg") {
                     const imageData = result[format];
                     if (imageData && typeof imageData === 'string') {
                       const abortController = new AbortController();
