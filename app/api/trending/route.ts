@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { generateObject } from 'ai';
 import { groq } from '@ai-sdk/groq'
+import { o1 } from '@ai-sdk/o1'
 import { z } from 'zod';
+import { o1Preview } from '@ai-sdk/openai';
 
 export interface TrendingQuery {
   icon: string;
@@ -39,7 +41,7 @@ async function fetchGoogleTrends(): Promise<TrendingQuery[]> {
 
       const itemsWithCategoryAndIcon = await Promise.all(items.map(async item => {
         const { object } = await generateObject({
-          model: groq("llama-3.2-3b-preview"),
+          model: o1("llama-3.2-3b-preview"),
           prompt: `Give the category for the topic from the existing values only in lowercase only: ${item.replace(/<\/?title>/g, '')}
           
           - if the topic category isn't present in the list, please select 'trending' only!`,
@@ -140,4 +142,38 @@ export async function GET() {
     console.error('Failed to fetch trends:', error);
     return NextResponse.error();
   }
+}
+
+async function generateTrendingQueries(history: any[]) {
+  'use server';
+
+  console.log(history);
+
+  const { object } = await generateObject({
+    model: o1Preview('o1-preview', {
+      structuredOutputs: true,
+    }),
+    temperature: 1,
+    maxTokens: 300,
+    topP: 0.95,
+    topK: 40,
+    system:
+      `You are a search engine query generator. You 'have' to create only '3' questions for the search engine based on the message history which has been provided to you.
+The questions should be open-ended and should encourage further discussion while maintaining the whole context. Limit it to 5-10 words per question. 
+Always put the user input's context is some way so that the next search knows what to search for exactly.
+Try to stick to the context of the conversation and avoid asking questions that are too general or too specific.
+For weather based converations sent to you, always generate questions that are about news, sports, or other topics that are not related to the weather.
+For programming based conversations, always generate questions that are about the algorithms, data structures, or other topics that are related to it or an improvement of the question.
+For location based conversations, always generate questions that are about the culture, history, or other topics that are related to the location.
+For the translation based conversations, always generate questions that may continue the conversation or ask for more information or translations.
+Do not use pronouns like he, she, him, his, her, etc. in the questions as they blur the context. Always use the proper nouns from the context.`,
+    messages: history,
+    schema: z.object({
+      questions: z.array(z.string()).describe('The generated questions based on the message history.')
+    }),
+  });
+
+  return {
+    questions: object.questions
+  };
 }
